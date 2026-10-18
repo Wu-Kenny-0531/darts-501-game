@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🎯 DartMaster: 501 & Checkout Rush</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&family=Noto+Sans+TC:wght@400;600;700&display=swap');
+    
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      font-family: 'Chakra Petch', 'Noto Sans TC', sans-serif;
+      background: radial-gradient(circle at 50% 20%, #1a1e29 0%, #0c0e14 100%);
+      color: #f1f5f9;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* 靶場螢光霓虹效果 */
+    .neon-text-green {
+      text-shadow: 0 0 10px rgba(34, 197, 94, 0.7), 0 0 20px rgba(34, 197, 94, 0.4);
+    }
+    .neon-text-gold {
+      text-shadow: 0 0 10px rgba(234, 179, 8, 0.8), 0 0 25px rgba(234, 179, 8, 0.5);
+    }
+    .neon-border {
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.25), inset 0 0 15px rgba(16, 185, 129, 0.15);
+    }
+
+    /* 能量準心震盪條 */
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.8; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+    .pulse-target {
+      animation: pulseGlow 1.8s infinite ease-in-out;
+    }
+
+    /* 隱藏滾動條 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-between p-2 sm:p-4 text-slate-100 min-h-screen">
+
+  <!-- 頂部頂欄：遊戲模式與音效切換 -->
+  <header class="w-full max-w-4xl flex items-center justify-between px-3 py-2 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl shadow-xl mb-3">
+    <div class="flex items-center gap-2">
+      <span class="text-2xl">🎯</span>
+      <div>
+        <h1 class="text-lg sm:text-xl font-bold tracking-wider text-emerald-400">DARTMASTER</h1>
+        <p class="text-[10px] text-slate-400 uppercase tracking-widest hidden sm:block">Arcade 2D Physics Scorer</p>
+      </div>
+    </div>
+
+    <!-- 模式選擇按鈕 -->
+    <div class="flex items-center gap-1 sm:gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+      <button id="mode501Btn" onclick="switchMode('501')" class="px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow-md">
+        501 錦標賽
+      </button>
+      <button id="modeRushBtn" onclick="switchMode('rush')" class="px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">
+        結標特訓 (Rush)
+      </button>
+    </div>
+
+    <!-- 功能快捷：聲音開關與重新開始 -->
+    <div class="flex items-center gap-1.5">
+      <button id="soundBtn" onclick="toggleAudio()" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition" title="聲音切換">
+        <span id="soundIcon">🔊</span>
+      </button>
+      <button onclick="resetGame()" class="px-3 py-1.5 rounded-xl bg-rose-600/80 hover:bg-rose-500 text-white text-xs font-semibold tracking-wide transition shadow">
+        重開局
+      </button>
+    </div>
+  </header>
+
+  <!-- 核心遊戲互動區 -->
+  <main class="w-full max-w-4xl flex flex-col lg:flex-row gap-4 items-center justify-center flex-1">
+    
+    <!-- 左側/中央：Canvas 飛鏢靶與瞄準視窗 -->
+    <div class="relative flex flex-col items-center">
+      <!-- 畫布容器 -->
+      <div class="relative w-[340px] h-[340px] sm:w-[420px] sm:h-[420px] rounded-full p-2 bg-gradient-to-b from-slate-800 to-slate-950 border-4 border-slate-700/80 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex items-center justify-center cursor-crosshair overflow-hidden" id="canvasWrapper">
+        <canvas id="dartboardCanvas" width="420" height="420" class="w-full h-full block rounded-full"></canvas>
+        
+        <!-- 動態晃動瞄準準心 (十字線) -->
+        <div id="reticle" class="absolute pointer-events-none transform -translate-x-1/2 -translate-y-1/2 will-change-transform z-20">
+          <div class="relative w-10 h-10 flex items-center justify-center">
+            <!-- 外圈準星 -->
+            <div class="absolute inset-0 rounded-full border-2 border-dashed border-emerald-400 animate-spin" style="animation-duration: 8s;"></div>
+            <!-- 中心點 -->
+            <div class="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]"></div>
+            <!-- 十字指標線 -->
+            <div class="absolute w-12 h-0.5 bg-emerald-400/80"></div>
+            <div class="absolute h-12 w-0.5 bg-emerald-400/80"></div>
+          </div>
+        </div>
+
+        <!-- 擊中動態漂浮標籤 -->
+        <div id="hitToast" class="absolute pointer-events-none opacity-0 z-30 font-black text-2xl tracking-wider transition-all duration-300 transform scale-50"></div>
+      </div>
+
+      <!-- 下方即時投擲控制提示與時機點擊條 -->
+      <div class="w-full mt-3 flex flex-col items-center">
+        <!-- 晃動強度穩定度指標 -->
+        <div class="w-full max-w-xs bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 flex items-center justify-between text-xs text-slate-400">
+          <span>🎯 滑鼠/手指移動瞄準</span>
+          <span class="text-amber-400 font-semibold flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> 點擊投擲
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右側：計分板、即時結標指引、數據 HUD -->
+    <div class="w-full max-w-sm flex flex-col gap-3">
+      
+      <!-- 主分數卡片 -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl relative overflow-hidden neon-border">
+        <!-- 裝飾光暈 -->
+        <div class="absolute -right-8 -top-8 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="flex justify-between items-start mb-1">
+          <span class="text-xs uppercase tracking-widest text-slate-400" id="scoreLabel">剩餘分數 (REMAINING)</span>
+          <span id="turnCounterBadge" class="text-[11px] font-bold px-2 py-0.5 bg-slate-800 border border-slate-700 rounded-full text-emerald-400">第 1 輪</span>
+        </div>
+
+        <!-- 剩餘分數大字 -->
+        <div class="flex items-baseline justify-between">
+          <div class="text-6xl font-black tracking-tight text-white neon-text-green" id="scoreDisplay">501</div>
+          
+          <!-- Rush 模式下的倒數計時器 -->
+          <div id="rushTimerBox" class="hidden flex flex-col items-end">
+            <span class="text-[10px] text-slate-400 uppercase">剩餘時間</span>
+            <span id="rushTimerVal" class="text-3xl font-extrabold text-amber-400">15.0s</span>
+          </div>
+        </div>
+
+        <!-- 智慧結標提示 (Checkout Guide) -->
+        <div class="mt-3 p-2.5 bg-slate-950/80 border border-emerald-900/40 rounded-xl flex items-center gap-2">
+          <div class="text-lg">💡</div>
+          <div class="flex-1">
+            <div class="text-[10px] uppercase text-emerald-400/90 font-bold tracking-wider">建議結標路徑 (Double-Out)</div>
+            <div id="checkoutHint" class="text-sm font-semibold text-slate-200 tracking-wide font-mono">--</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 本輪 3 鏢紀錄 -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 shadow-md">
+        <div class="text-xs text-slate-400 font-semibold mb-2 flex justify-between">
+          <span>本輪投擲 (THIS TURN)</span>
+          <span id="dartTurnStatus" class="text-slate-300 font-bold">第 1 鏢</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div id="dartSlot1" class="h-12 rounded-xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center transition">
+            <span class="text-[10px] text-slate-500 font-mono">DART 1</span>
+            <span class="text-base font-bold text-slate-300">-</span>
+          </div>
+          <div id="dartSlot2" class="h-12 rounded-xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center transition">
+            <span class="text-[10px] text-slate-500 font-mono">DART 2</span>
+            <span class="text-base font-bold text-slate-300">-</span>
+          </div>
+          <div id="dartSlot3" class="h-12 rounded-xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center transition">
+            <span class="text-[10px] text-slate-500 font-mono">DART 3</span>
+            <span class="text-base font-bold text-slate-300">-</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 即時數據統計 HUD -->
+      <div class="grid grid-cols-3 gap-2">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2 text-center">
+          <div class="text-[10px] text-slate-400">每輪均分 (PPR)</div>
+          <div id="statPPR" class="text-lg font-bold text-emerald-400">0.0</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2 text-center">
+          <div class="text-[10px] text-slate-400">總投擲鏢數</div>
+          <div id="statTotalDarts" class="text-lg font-bold text-slate-200">0</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2 text-center">
+          <div class="text-[10px] text-slate-400">結標等級 / 關卡</div>
+          <div id="statLevel" class="text-lg font-bold text-amber-400">LV 1</div>
+        </div>
+      </div>
+
+      <!-- 投擲歷史記錄區 -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex-1 max-h-36 overflow-y-auto">
+        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between">
+          <span>投擲日誌</span>
+          <span class="text-[10px] text-slate-500">最近 10 鏢</span>
+        </div>
+        <div id="historyLog" class="space-y-1.5 text-xs font-mono">
+          <div class="text-slate-500 italic text-center py-2">尚未投擲飛鏢</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- 底部規則與提示 -->
+  <footer class="w-full max-w-4xl py-2 text-center text-slate-500 text-xs">
+    <span>遵循正規雙倍結標 (Double-Out) 規則 • 結標時最後一鏢需為雙倍區 (D) 或紅心 (Bull 50)</span>
+  </footer>
+
+  <!-- 結算/獲勝 Modal -->
+  <div id="gameModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-emerald-500/50 rounded-2xl max-w-md w-full p-6 text-center shadow-2xl relative">
+      <div id="modalIcon" class="text-5xl mb-2">🏆</div>
+      <h2 id="modalTitle" class="text-2xl font-bold text-white mb-1">勝利結標！GAME SHOT!</h2>
+      <p id="modalDesc" class="text-sm text-slate-300 mb-4">你在 15 鏢內成功完成 501 雙倍結標！</p>
+      
+      <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-left mb-5 space-y-1 text-xs">
+        <div class="flex justify-between text-slate-300"><span>最終總鏢數：</span><b id="modalDarts" class="text-white">15</b></div>
+        <div class="flex justify-between text-slate-300"><span>每輪平均分 (PPR)：</span><b id="modalPPR" class="text-emerald-400">100.2</b></div>
+        <div class="flex justify-between text-slate-300"><span>最後結標鏢：</span><b id="modalCheckoutDart" class="text-amber-400">D20</b></div>
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="closeModal()" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl transition shadow">
+          再玩一局 (Play Again)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       1. 全域變數、遊戲狀態與設定
+       ========================================================================== */
+    const canvas = document.getElementById('dartboardCanvas');
+    const ctx = canvas.getContext('2d');
+    const reticle = document.getElementById('reticle');
+    const canvasWrapper = document.getElementById('canvasWrapper');
+
+    // 標準飛鏢數字環順序（正上方為 20，順時針排列）
+    const SECTORS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+    
+    // 遊戲狀態機
+    const state = {
+      mode: '501',             // '501' | 'rush'
+      score: 501,
+      turnStartScore: 501,
+      dartsInTurn: [],         // 本輪投擲紀錄 [{ label, score, isDouble }]
+      turnCount: 1,
+      totalDarts: 0,
+      totalScoreScored: 0,
+      soundEnabled: true,
+      isThrowing: false,
+      stuckDarts: [],          // Canvas 上已插著的鏢孔痕跡 [{ x, y, color }]
+      
+      // Rush 模式專屬屬性
+      rushLevel: 1,
+      rushTimeLeft: 20,
+      rushTimerInterval: null,
+      rushTarget: 40,
+
+      // 瞄準與晃動模擬
+      mousePos: { x: 210, y: 210 },
+      currentAim: { x: 210, y: 210 },
+      wobbleAngle: 0,
+      isMouseInside: false
+    };
+
+    // 經典結標字典（Double-out 推薦解法）
+    const CHECKOUT_TABLE = {
+      170: "T20 ➔ T20 ➔ Bull (50)",
+      167: "T20 ➔ T19 ➔ Bull (50)",
+      164: "T20 ➔ T18 ➔ Bull (50)",
+      161: "T20 ➔ T17 ➔ Bull (50)",
+      160: "T20 ➔ T20 ➔ D20",
+      158: "T20 ➔ T20 ➔ D19",
+      156: "T20 ➔ T20 ➔ D18",
+      154: "T20 ➔ T18 ➔ D20",
+      152: "T20 ➔ T20 ➔ D16",
+      150: "T20 ➔ T18 ➔ D18",
+      140: "T20 ➔ T16 ➔ D16",
+      130: "T20 ➔ T18 ➔ D8",
+      121: "T20 ➔ T15 ➔ D8",
+      120: "T20 ➔ S20 ➔ D20",
+      110: "T20 ➔ S18 ➔ D16",
+      100: "T20 ➔ D20",
+      90: "T20 ➔ D15",
+      80: "T20 ➔ D10",
+      70: "T18 ➔ D8",
+      60: "S20 ➔ D20",
+      50: "Bull (50)",
+      40: "D20",
+      36: "D18",
+      32: "D16",
+      24: "D12",
+      20: "D10",
+      16: "D8",
+      10: "D5",
+      8: "D4",
+      4: "D2",
+      2: "D1"
+    };
+
+    /* ==========================================================================
+       2. Web Audio API 音效合成引擎 (無外部音效檔依賴)
+       ========================================================================== */
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type) {
+      if (!state.soundEnabled) return;
+      initAudio();
+      const now = audioCtx.currentTime;
+
+      if (type === 'thud') {
+        // 飛鏢插入靶面的厚重木板撞擊聲
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+
+        gain.gain.setValueAtTime(0.7, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.09);
+
+      } else if (type === 'bull') {
+        // 命中紅心金屬撞擊爽感
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, now); // D5
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+
+      } else if (type === 'bust') {
+        // 爆鏢低音短促 Buzzer
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(90, now);
+        osc.frequency.setValueAtTime(80, now + 0.15);
+
+        gain.gain.setValueAtTime(0.6, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.35);
+
+      } else if (type === 'cheer') {
+        // 獲勝/高分和弦簡奏
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.2, now + idx * 0.09);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.4);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.09);
+          osc.stop(now + idx * 0.09 + 0.45);
+        });
+      }
+    }
+
+    function toggleAudio() {
+      state.soundEnabled = !state.soundEnabled;
+      document.getElementById('soundIcon').innerText = state.soundEnabled ? '🔊' : '🔇';
+    }
+
+    /* ==========================================================================
+       3. 飛鏢靶 Canvas 繪製核心
+       ========================================================================== */
+    function drawDartboard() {
+      const width = canvas.width;
+      const height = canvas.height;
+      const cx = width / 2;
+      const cy = height / 2;
+      const radius = width * 0.45; // 最大外半徑
+
+      ctx.clearRect(0, 0, width, height);
+
+      // 飛鏢靶標準同心圓半徑比例
+      const rDoubleOuter = radius * 0.88;
+      const rDoubleInner = radius * 0.80;
+      const rTripleOuter = radius * 0.54;
+      const rTripleInner = radius * 0.46;
+      const rOuterBull   = radius * 0.09;
+      const rInnerBull   = radius * 0.04;
+
+      // 1. 最外圍黑色底框 (數字環底)
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fillStyle = '#111827';
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#374151';
+      ctx.stroke();
+
+      const numSectors = 20;
+      const sectorAngle = (Math.PI * 2) / numSectors;
+      // 20 區位於正頂端，需微調偏移角度 -PI/2 - (sectorAngle / 2)
+      const offsetAngle = -Math.PI / 2 - sectorAngle / 2;
+
+      // 2. 繪製 20 個扇形區間
+      for (let i = 0; i < numSectors; i++) {
+        const startA = offsetAngle + i * sectorAngle;
+        const endA = startA + sectorAngle;
+        const isOdd = i % 2 === 1;
+
+        // 扇形主體顏色 (單倍區)
+        const singleColor = isOdd ? '#f8fafc' : '#0f172a'; // 米白 / 墨黑
+        // 雙倍 / 三倍環顏色
+        const ringColor = isOdd ? '#16a34a' : '#dc2626';   // 綠 / 紅
+
+        // --- 單倍外區 (Outer Single) ---
+        drawRingSegment(cx, cy, rDoubleInner, rTripleOuter, startA, endA, singleColor);
+        // --- 雙倍區 (Double Ring) ---
+        drawRingSegment(cx, cy, rDoubleOuter, rDoubleInner, startA, endA, ringColor);
+        // --- 單倍內區 (Inner Single) ---
+        drawRingSegment(cx, cy, rTripleInner, rOuterBull, startA, endA, singleColor);
+        // --- 三倍區 (Triple Ring) ---
+        drawRingSegment(cx, cy, rTripleOuter, rTripleInner, startA, endA, ringColor);
+
+        // --- 繪製最外環分區數字 ---
+        const textAngle = startA + sectorAngle / 2;
+        const textRadius = radius * 0.94;
+        const tx = cx + Math.cos(textAngle) * textRadius;
+        const ty = cy + Math.sin(textAngle) * textRadius;
+        
+        ctx.save();
+        ctx.translate(tx, ty);
+        ctx.rotate(textAngle + Math.PI / 2);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 15px Chakra Petch';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(SECTORS[i], 0, 0);
+        ctx.restore();
+      }
+
+      // 3. 繪製紅心 (Bullseye)
+      // 外紅心 25 分 (綠色)
+      ctx.beginPath();
+      ctx.arc(cx, cy, rOuterBull, 0, Math.PI * 2);
+      ctx.fillStyle = '#16a34a';
+      ctx.fill();
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // 雙倍紅心 Double Bull 50 分 (紅色)
+      ctx.beginPath();
+      ctx.arc(cx, cy, rInnerBull, 0, Math.PI * 2);
+      ctx.fillStyle = '#dc2626';
+      ctx.fill();
+      ctx.stroke();
+
+      // 4. 繪製靶面上留存的投擲鏢孔痕跡 (Stuck Darts)
+      state.stuckDarts.forEach((dart) => {
+        // 陰影
+        ctx.beginPath();
+        ctx.arc(dart.x + 2, dart.y + 2, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fill();
+
+        // 鏢身小十字標誌
+        ctx.beginPath();
+        ctx.arc(dart.x, dart.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = dart.color || '#38bdf8';
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+      });
+    }
+
+    // 輔助函式：繪製環形扇面
+    function drawRingSegment(cx, cy, rOuter, rInner, startAngle, endAngle, fillColor) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, rOuter, startAngle, endAngle, false);
+      ctx.arc(cx, cy, rInner, endAngle, startAngle, true);
+      ctx.closePath();
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.stroke();
+    }
+
+    /* ==========================================================================
+       4. 坐標判定與飛鏢物理命中演算法
+       ========================================================================== */
+    function evaluateHit(x, y) {
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const dx = x - cx;
+      const dy = y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const radius = canvas.width * 0.45;
+
+      const rDoubleOuter = radius * 0.88;
+      const rDoubleInner = radius * 0.80;
+      const rTripleOuter = radius * 0.54;
+      const rTripleInner = radius * 0.46;
+      const rOuterBull   = radius * 0.09;
+      const rInnerBull   = radius * 0.04;
+
+      // 脫靶 (Miss)
+      if (dist > rDoubleOuter) {
+        return { score: 0, label: 'MISS', multiplier: 0, isDouble: false };
+      }
+
+      // 雙倍紅心 (Inner Bull 50)
+      if (dist <= rInnerBull) {
+        return { score: 50, label: 'BULL (50)', multiplier: 2, isDouble: true };
+      }
+
+      // 單倍外紅心 (Outer Bull 25)
+      if (dist <= rOuterBull) {
+        return { score: 25, label: '25 BULL', multiplier: 1, isDouble: false };
+      }
+
+      // 計算角度判定所屬扇區
+      // atan2 回傳 [-PI, PI]，0 度為正 X 軸
+      let angle = Math.atan2(dy, dx);
+      // 換算成以正上方 (-PI/2) 為基準的順時針角度 [0, 2PI)
+      let normAngle = angle + Math.PI / 2;
+      if (normAngle < 0) normAngle += Math.PI * 2;
+
+      const sectorAngle = (Math.PI * 2) / 20;
+      // 每個扇形中心在正上方，需再平移半個 sector
+      let shiftedAngle = normAngle + sectorAngle / 2;
+      if (shiftedAngle >= Math.PI * 2) shiftedAngle -= Math.PI * 2;
+
+      const index = Math.floor(shiftedAngle / sectorAngle);
+      const baseNumber = SECTORS[index];
+
+      // 判斷三倍環
+      if (dist >= rTripleInner && dist <= rTripleOuter) {
+        return { score: baseNumber * 3, label: `T${baseNumber} (${baseNumber * 3})`, multiplier: 3, isDouble: false };
+      }
+
+      // 判斷雙倍環
+      if (dist >= rDoubleInner && dist <= rDoubleOuter) {
+        return { score: baseNumber * 2, label: `D${baseNumber} (${baseNumber * 2})`, multiplier: 2, isDouble: true };
+      }
+
+      // 其餘皆為單倍區 (Single)
+      return { score: baseNumber, label: `S${baseNumber} (${baseNumber})`, multiplier: 1, isDouble: false };
+    }
+
+    /* ==========================================================================
+       5. 瞄準與手感晃動 (Wobble) 動態迴圈
+       ========================================================================== */
+    function updateReticlePosition() {
+      if (!state.isMouseInside) {
+        // 若游標不在畫布上，自然在靶心附近呼吸晃動
+        state.mousePos.x = canvas.width / 2;
+        state.mousePos.y = canvas.height / 2;
+      }
+
+      state.wobbleAngle += 0.05;
+      // 自然手抖晃動半徑 (8px ~ 12px)
+      const wobbleRadius = 9;
+      const wobbleX = Math.cos(state.wobbleAngle * 1.3) * wobbleRadius + Math.sin(state.wobbleAngle * 0.7) * (wobbleRadius * 0.4);
+      const wobbleY = Math.sin(state.wobbleAngle) * wobbleRadius + Math.cos(state.wobbleAngle * 1.1) * (wobbleRadius * 0.4);
+
+      // 內插逼近真實游標
+      state.currentAim.x += (state.mousePos.x - state.currentAim.x) * 0.18;
+      state.currentAim.y += (state.mousePos.y - state.currentAim.y) * 0.18;
+
+      const displayX = state.currentAim.x + wobbleX;
+      const displayY = state.currentAim.y + wobbleY;
+
+      // 換算至 HTML 元素百分比以定位準心
+      const percentX = (displayX / canvas.width) * 100;
+      const percentY = (displayY / canvas.height) * 100;
+      reticle.style.left = `${percentX}%`;
+      reticle.style.top = `${percentY}%`;
+
+      requestAnimationFrame(updateReticlePosition);
+    }
+
+    // 監聽游標與觸控事件
+    function handlePointerMove(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      state.mousePos.x = (clientX - rect.left) * scaleX;
+      state.mousePos.y = (clientY - rect.top) * scaleY;
+      state.isMouseInside = true;
+    }
+
+    canvasWrapper.addEventListener('mousemove', handlePointerMove);
+    canvasWrapper.addEventListener('touchmove', (e) => {
+      handlePointerMove(e);
+      e.preventDefault(); // 防止手機滾動
+    }, { passive: false });
+
+    canvasWrapper.addEventListener('mouseenter', () => { state.isMouseInside = true; });
+    canvasWrapper.addEventListener('mouseleave', () => { state.isMouseInside = false; });
+
+    /* ==========================================================================
+       6. 投擲動作與遊戲規則結算
+       ========================================================================== */
+    canvasWrapper.addEventListener('click', throwDart);
+    canvasWrapper.addEventListener('touchend', (e) => {
+      throwDart();
+      e.preventDefault();
+    });
+
+    function throwDart() {
+      if (state.isThrowing) return;
+      initAudio();
+
+      state.isThrowing = true;
+
+      // 擷取點擊瞬間準星實際所在座標 (含晃動誤差)
+      const hitX = parseFloat(reticle.style.left) * (canvas.width / 100);
+      const hitY = parseFloat(reticle.style.top) * (canvas.height / 100);
+
+      // 產生落點微小物理散佈 (+/- 3px)
+      const finalX = hitX + (Math.random() - 0.5) * 6;
+      const finalY = hitY + (Math.random() - 0.5) * 6;
+
+      const hitResult = evaluateHit(finalX, finalY);
+
+      // 音效播放
+      if (hitResult.score === 50) {
+        playSound('bull');
+      } else {
+        playSound('thud');
+      }
+
+      // 新增鏢靶留痕
+      state.stuckDarts.push({
+        x: finalX,
+        y: finalY,
+        color: state.dartsInTurn.length === 0 ? '#38bdf8' : state.dartsInTurn.length === 1 ? '#a855f7' : '#f59e0b'
+      });
+      drawDartboard();
+
+      // 顯示螢幕擊中 Toast
+      showHitToast(hitResult.label, hitX, hitY);
+
+      // 處理記分規則
+      processDartScore(hitResult);
+
+      setTimeout(() => {
+        state.isThrowing = false;
+      }, 350);
+    }
+
+    function showHitToast(text, x, y) {
+      const toast = document.getElementById('hitToast');
+      toast.innerText = text;
+      
+      const percentX = (x / canvas.width) * 100;
+      const percentY = (y / canvas.height) * 100;
+      toast.style.left = `${percentX}%`;
+      toast.style.top = `${percentY}%`;
+
+      // 顏色樣式
+      if (text.startsWith('T') || text.includes('50')) {
+        toast.className = 'absolute pointer-events-none z-30 font-black text-2xl tracking-wider transition-all duration-300 transform -translate-x-1/2 -translate-y-12 opacity-100 scale-125 text-amber-300 drop-shadow-[0_0_10px_#f59e0b]';
+      } else if (text.startsWith('D')) {
+        toast.className = 'absolute pointer-events-none z-30 font-black text-2xl tracking-wider transition-all duration-300 transform -translate-x-1/2 -translate-y-12 opacity-100 scale-125 text-emerald-400 drop-shadow-[0_0_10px_#10b981]';
+      } else if (text === 'MISS') {
+        toast.className = 'absolute pointer-events-none z-30 font-black text-xl tracking-wider transition-all duration-300 transform -translate-x-1/2 -translate-y-8 opacity-100 scale-100 text-rose-500';
+      } else {
+        toast.className = 'absolute pointer-events-none z-30 font-black text-xl tracking-wider transition-all duration-300 transform -translate-x-1/2 -translate-y-10 opacity-100 scale-110 text-white drop-shadow-md';
+      }
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translate(-50%, -60px) scale(0.8)';
+      }, 450);
+    }
+
+    function processDartScore(hit) {
+      state.totalDarts++;
+      state.dartsInTurn.push(hit);
+
+      const dartNum = state.dartsInTurn.length;
+      updateDartSlotUI(dartNum, hit.label);
+
+      // 記錄日誌
+      addHistoryLog(state.turnCount, dartNum, hit.label, hit.score);
+
+      if (state.mode === '501') {
+        process501Rules(hit);
+      } else {
+        processRushRules(hit);
+      }
+
+      updateHUD();
+    }
+
+    /* --- 501 錦標賽計分與 Double-Out 規則 --- */
+    function process501Rules(hit) {
+      const remaining = state.score - hit.score;
+
+      // 1. 成功 Double-Out 結標勝利判定
+      if (remaining === 0 && hit.isDouble) {
+        state.score = 0;
+        state.totalScoreScored += hit.score;
+        playSound('cheer');
+        setTimeout(() => {
+          showVictoryModal(true, `以 ${hit.label} 完美雙倍結標！`);
+        }, 400);
+        return;
+      }
+
+      // 2. 爆鏢判定 (Bust)
+      // 分數小於 0、剛好等於 1 (剩 1 分無法用 Double 結標)、或者扣至 0 分但不是雙倍區
+      if (remaining < 0 || remaining === 1 || (remaining === 0 && !hit.isDouble)) {
+        triggerBust();
+        return;
+      }
+
+      // 3. 正常有效得分
+      state.score = remaining;
+      state.totalScoreScored += hit.score;
+
+      // 若投滿 3 鏢，換輪
+      if (state.dartsInTurn.length === 3) {
+        setTimeout(nextTurn, 600);
+      }
+    }
+
+    function triggerBust() {
+      playSound('bust');
+      showHitToast('BUST! 爆鏢', canvas.width / 2, canvas.height / 2);
+
+      // 分數重置為本輪起始分數
+      state.score = state.turnStartScore;
+
+      // 標註本輪剩餘鏢為無效
+      setTimeout(() => {
+        nextTurn();
+      }, 700);
+    }
+
+    function nextTurn() {
+      state.turnCount++;
+      state.turnStartScore = state.score;
+      state.dartsInTurn = [];
+      state.stuckDarts = []; // 清空靶面飛鏢以利新的一輪
+      drawDartboard();
+      resetDartSlotsUI();
+      updateHUD();
+    }
+
+    /* --- Checkout Rush 特訓模式邏輯 --- */
+    function processRushRules(hit) {
+      state.score -= hit.score;
+
+      if (state.score === 0 && hit.isDouble) {
+        // 過關結標
+        playSound('cheer');
+        state.rushLevel++;
+        state.rushTimeLeft = Math.min(30, state.rushTimeLeft + 8); // 獎勵時間
+        showHitToast('CLEAR! +8s', canvas.width / 2, canvas.height / 2);
+
+        setTimeout(() => {
+          generateRushTarget();
+        }, 800);
+      } else if (state.score <= 1) {
+        // Rush 模式爆鏢：重置當前目標分數
+        playSound('bust');
+        showHitToast('BUST! 重置靶位', canvas.width / 2, canvas.height / 2);
+        state.score = state.rushTarget;
+        state.dartsInTurn = [];
+        state.stuckDarts = [];
+        drawDartboard();
+        resetDartSlotsUI();
+      }
+
+      if (state.dartsInTurn.length >= 3) {
+        state.dartsInTurn = [];
+        state.stuckDarts = [];
+        drawDartboard();
+        resetDartSlotsUI();
+      }
+    }
+
+    function generateRushTarget() {
+      // 隨機抽選 2~120 之間常見可雙倍結標的分數
+      const validCheckouts = [40, 32, 24, 20, 16, 50, 60, 70, 80, 90, 100, 110, 120];
+      const target = validCheckouts[Math.floor(Math.random() * validCheckouts.length)];
+      state.rushTarget = target;
+      state.score = target;
+      state.dartsInTurn = [];
+      state.stuckDarts = [];
+      drawDartboard();
+      resetDartSlotsUI();
+      updateHUD();
+    }
+
+    function startRushTimer() {
+      clearInterval(state.rushTimerInterval);
+      state.rushTimeLeft = 25;
+      document.getElementById('rushTimerBox').classList.remove('hidden');
+
+      state.rushTimerInterval = setInterval(() => {
+        state.rushTimeLeft -= 0.1;
+        if (state.rushTimeLeft <= 0) {
+          state.rushTimeLeft = 0;
+          clearInterval(state.rushTimerInterval);
+          playSound('bust');
+          showVictoryModal(false, `時間用盡！最終結標等級：LV ${state.rushLevel}`);
+        }
+        document.getElementById('rushTimerVal').innerText = state.rushTimeLeft.toFixed(1) + 's';
+      }, 100);
+    }
+
+    /* ==========================================================================
+       7. UI 更新與輔助顯示
+       ========================================================================= */
+    function updateHUD() {
+      // 分數大字
+      document.getElementById('scoreDisplay').innerText = state.score;
+      document.getElementById('turnCounterBadge').innerText = `第 ${state.turnCount} 輪`;
+
+      // 智慧結標提示
+      const hint = CHECKOUT_TABLE[state.score];
+      const hintEl = document.getElementById('checkoutHint');
+      if (state.score <= 170 && hint) {
+        hintEl.innerHTML = `<span class="text-amber-400 font-bold">${hint}</span>`;
+      } else if (state.score <= 170 && state.score % 2 === 0 && state.score <= 40) {
+        hintEl.innerHTML = `<span class="text-emerald-400 font-bold">D${state.score / 2}</span>`;
+      } else if (state.score > 170) {
+        hintEl.innerText = '穩健進攻累積得分 (瞄準 T20 / T19)';
+      } else {
+        hintEl.innerText = '調整佈局以進入雙倍區';
+      }
+
+      // PPR (Points Per Round) = 總得分 / 總輪數
+      const effectiveRounds = Math.max(1, state.totalDarts / 3);
+      const ppr = (state.totalScoreScored / effectiveRounds).toFixed(1);
+      document.getElementById('statPPR').innerText = ppr;
+      document.getElementById('statTotalDarts').innerText = state.totalDarts;
+      document.getElementById('statLevel').innerText = state.mode === '501' ? `R ${state.turnCount}` : `LV ${state.rushLevel}`;
+    }
+
+    function updateDartSlotUI(dartIndex, label) {
+      const slot = document.getElementById(`dartSlot${dartIndex}`);
+      if (slot) {
+        slot.querySelector('span:last-child').innerText = label;
+        slot.classList.remove('bg-slate-950', 'border-slate-800');
+        slot.classList.add('bg-emerald-950/60', 'border-emerald-600/80');
+      }
+      const status = document.getElementById('dartTurnStatus');
+      status.innerText = dartIndex < 3 ? `第 ${dartIndex + 1} 鏢` : '換輪準備中...';
+    }
+
+    function resetDartSlotsUI() {
+      for (let i = 1; i <= 3; i++) {
+        const slot = document.getElementById(`dartSlot${i}`);
+        slot.className = 'h-12 rounded-xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center transition';
+        slot.querySelector('span:last-child').innerText = '-';
+      }
+      document.getElementById('dartTurnStatus').innerText = '第 1 鏢';
+    }
+
+    function addHistoryLog(turn, dart, label, score) {
+      const log = document.getElementById('historyLog');
+      if (state.totalDarts === 1) log.innerHTML = '';
+
+      const row = document.createElement('div');
+      row.className = 'flex justify-between items-center text-slate-300 py-0.5 border-b border-slate-800/60';
+      row.innerHTML = `
+        <span class="text-slate-500 font-mono">T${turn}-${dart}</span>
+        <span class="font-bold text-white">${label}</span>
+        <span class="text-emerald-400 font-mono">+${score}</span>
+      `;
+      log.insertBefore(row, log.firstChild);
+
+      // 維持最多 15 筆
+      if (log.children.length > 15) {
+        log.removeChild(log.lastChild);
+      }
+    }
+
+    /* ==========================================================================
+       8. 模式切換與結算 Modal
+       ========================================================================== */
+    function switchMode(newMode) {
+      state.mode = newMode;
+      const btn501 = document.getElementById('mode501Btn');
+      const btnRush = document.getElementById('modeRushBtn');
+      const timerBox = document.getElementById('rushTimerBox');
+
+      if (newMode === '501') {
+        btn501.className = 'px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow-md';
+        btnRush.className = 'px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white';
+        timerBox.classList.add('hidden');
+        clearInterval(state.rushTimerInterval);
+        resetGame(501);
+      } else {
+        btnRush.className = 'px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow-md';
+        btn501.className = 'px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white';
+        resetGame('rush');
+      }
+    }
+
+    function resetGame(targetMode) {
+      const mode = targetMode || state.mode;
+      state.turnCount = 1;
+      state.totalDarts = 0;
+      state.totalScoreScored = 0;
+      state.dartsInTurn = [];
+      state.stuckDarts = [];
+      state.rushLevel = 1;
+
+      if (mode === 'rush' || state.mode === 'rush') {
+        generateRushTarget();
+        startRushTimer();
+      } else {
+        state.score = 501;
+        state.turnStartScore = 501;
+        clearInterval(state.rushTimerInterval);
+        document.getElementById('rushTimerBox').classList.add('hidden');
+      }
+
+      resetDartSlotsUI();
+      drawDartboard();
+      updateHUD();
+      document.getElementById('historyLog').innerHTML = '<div class="text-slate-500 italic text-center py-2">新對局開始，尚未投擲</div>';
+      closeModal();
+    }
+
+    function showVictoryModal(isWin, desc) {
+      const modal = document.getElementById('gameModal');
+      document.getElementById('modalTitle').innerText = isWin ? '勝利結標！GAME SHOT!' : '挑戰結束！';
+      document.getElementById('modalIcon').innerText = isWin ? '🏆' : '🎯';
+      document.getElementById('modalDesc').innerText = desc;
+      document.getElementById('modalDarts').innerText = state.totalDarts;
+      
+      const effectiveRounds = Math.max(1, state.totalDarts / 3);
+      document.getElementById('modalPPR').innerText = (state.totalScoreScored / effectiveRounds).toFixed(1);
+      document.getElementById('modalCheckoutDart').innerText = state.dartsInTurn.length > 0 ? state.dartsInTurn[state.dartsInTurn.length - 1].label : 'None';
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('gameModal').classList.add('hidden');
+    }
+
+    /* ==========================================================================
+       9. 網頁加載初始化
+       ========================================================================== */
+    window.onload = function() {
+      drawDartboard();
+      updateHUD();
+      updateReticlePosition();
+    };
+  </script>
+</body>
+</html>
